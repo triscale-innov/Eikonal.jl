@@ -1,0 +1,7 @@
+name = "FastSweeping"
+uuid = "a6aab1ba-8f88-4217-b671-4d0788596809"
+authors = ["François Févotte <francois.fevotte@triscale-innov.com"]
+version = "0.1.0"
+
+[compat]
+julia = "1.5"
