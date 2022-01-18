@@ -4,12 +4,14 @@ export sweep!, ray
 
 
 # Fast Sweeping Method
-function sweep!(t, v)
-    T = eltype(t)
-    m, n = size(t)
+function sweep!(t::AbstractMatrix{T}, v::AbstractMatrix{T} ;
+                verbose = false,
+                epsilon = eps(T),
+                ) where {T}
+    m, n = size(v); @assert size(t) == (m+1, n+1)
     change = ones(T, 4)
 
-    ordered_indices(N, δ) = δ>0 ? (2:N) : (N-1:-1:1)
+    ordered_indices(N, δ) = δ>0 ? (2:1:N+1) : (N:-1:1)
     quadrants = ((1,1), (-1,1), (-1,-1), (1, -1))
 
     # Global iterations
@@ -19,11 +21,14 @@ function sweep!(t, v)
         for l in 1:4
             (δᵢ,δⱼ) = quadrants[l]
             maxchange = change[l] = zero(T)
-            maximum(change) <= eps(T) && return t  # TODO: really need to wait for 3 useless sweeps?
+            maximum(change) <= epsilon && return t
+
+            sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
+            sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
 
             for j in ordered_indices(n, δⱼ)
                 for i in ordered_indices(m, δᵢ)
-                    vᵢⱼ = v[i,j]                   # TODO: fix off-by-one error
+                    vᵢⱼ = v[i-sᵢ, j-sⱼ]
                     tᵢ  = t[i-δᵢ, j]
                     tⱼ  = t[i, j-δⱼ]
 
@@ -56,7 +61,7 @@ function sweep!(t, v)
                     end
                 end
             end
-            println("iter $k, sweep $l: change = $maxchange")
+            verbose && println("iter $k, sweep $l: change = $maxchange")
             change[l] = maxchange
         end
     end
@@ -66,12 +71,11 @@ end
 
 
 # Trajectory reconstruction using a gradient descent algorithm
-function ray(t, pos)
-    res = [pos]
+function ray(t::AbstractMatrix{T}, pos; ρ=T(0.5)) where {T}
+    # ρ is the step of the gradient descent (in terms of cell size)
+    # should be O(1) but can be decreased in cases where the gradient can be very large
 
-    # Step (in terms of cell size)
-    # should be O(1)
-    ρ = eltype(t)(0.5)
+    res = [pos]
 
     (i,j) = pos               # We need to keep track of integer cell indices
     (x,y) = eltype(t).(pos)   # as well as floating-point position
