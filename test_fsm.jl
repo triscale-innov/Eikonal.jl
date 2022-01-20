@@ -43,5 +43,5 @@ for pos in ((1500, 2990),
     scatter!(plt, first.(r), last.(r), markersize=0.01, label=nothing)
 end
 
-savefig(plt, "fast_sweeping.svg")
-savefig(plt, "fast_sweeping.png")
+savefig(plt, "fsm.svg")
+savefig(plt, "fsm.png")

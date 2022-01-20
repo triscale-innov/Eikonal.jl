@@ -1,6 +1,10 @@
 module FastSweeping
 using LinearAlgebra
-export sweep!, ray
+using DataStructures
+using Printf
+export sweep!
+export FastMarching, init!, march!
+export ray
 
 
 # Fast Sweeping Method
@@ -67,6 +71,108 @@ function sweep!(t::AbstractMatrix{T}, v::AbstractMatrix{T} ;
     end
 
     error("Max number of iterations reached!")
+end
+
+function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
+    sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
+    sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
+
+    vᵢⱼ = v[i-sᵢ, j-sⱼ]
+    tᵢ  = t[i-δᵢ, j]
+    tⱼ  = t[i, j-δⱼ]
+
+    # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
+    #
+    # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
+    a = 2
+    b = -2*(tᵢ + tⱼ)
+    c = tᵢ^2 + tⱼ^2 - vᵢⱼ^2
+    Δ = b^2 - 4*a*c
+
+    t₁ = t₂ = typemax(T)
+    if Δ>0                         # TODO: really need to compute both roots?
+        t₁ = (-b + √(Δ)) / 2a
+        t₁ > max(tᵢ, tⱼ) || (t₁ = typemax(T))
+
+        t₂ = (-b - √(Δ)) / 2a
+        t₂ > max(tᵢ, tⱼ) || (t₂ = typemax(T))
+    end
+
+    # Hyp: ∇y == 0  or  ∇x == 0
+    t₃ = vᵢⱼ + tᵢ
+    t₄ = vᵢⱼ + tⱼ
+
+    # Update if necessary
+    min(t₁, t₂, t₃, t₄)
+end
+
+
+
+const CI = CartesianIndex{2}
+
+struct FastMarching{T}
+    t :: Matrix{T}
+    v :: Matrix{T}
+    considered :: PriorityQueue{CI, T, Base.Order.ForwardOrdering}
+end
+
+FastMarching(m::Int, n::Int, T=Float64) = FastMarching(
+    fill(typemax(T), m+1, n+1),
+    fill(0.0, m, n),
+    PriorityQueue{CI, T}()
+)
+
+function init!(fm::FastMarching, source)
+    i = CI(source)
+    fm.considered[i] = 0
+    fm.t[i] = 0
+    fm
+end
+
+function march!(fm::FastMarching{T};
+                tmax    = typemax(T),
+                itermax = typemax(Int),
+                verbose = false,
+                ) where {T}
+    t = fm.t
+    v = fm.v
+    considered = fm.considered
+
+    @assert size(t) == size(v) .+ (1,1)
+    valid = CartesianIndices(t)
+
+    k = 0
+    tᵢⱼ = 0.
+    converged = false
+    @inbounds while true
+        (converged = isempty(considered)) && break
+        ij = dequeue!(considered)
+
+        for (δ, dirs) in ((CI( 1,  0), (CI( 1, -1), CI( 1,  1))),
+                          (CI( 0,  1), (CI( 1,  1), CI(-1,  1))),
+                          (CI(-1,  0), (CI(-1,  1), CI(-1, -1))),
+                          (CI( 0, -1), (CI(-1, -1), CI( 1, -1))))
+            n = ij + δ
+            n ∈ valid || continue
+            tₙ = typemax(T)
+
+            for dir in dirs
+                (n - dir) ∈ valid || continue
+                tₙ = min(tₙ, update(t, v, Tuple(n), Tuple(dir)))
+            end
+
+            if tₙ < t[n]
+                t[n] = tₙ
+                considered[n] = tₙ
+            end
+        end
+
+        (k += 1) == itermax  && break
+        (tᵢⱼ = t[ij]) >= tmax  && break
+    end
+
+    verbose && @printf("%10d %10.2f\n", k, tᵢⱼ)
+    converged
 end
 
 
