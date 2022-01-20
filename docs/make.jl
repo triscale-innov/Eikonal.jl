@@ -1,16 +1,16 @@
-using FastSweeping
+using Eikonal
 using Documenter
 
-DocMeta.setdocmeta!(FastSweeping, :DocTestSetup, :(using FastSweeping); recursive=true)
+DocMeta.setdocmeta!(Eikonal, :DocTestSetup, :(using Eikonal); recursive=true)
 
 makedocs(;
-    modules=[FastSweeping],
+    modules=[Eikonal],
     authors="François Févotte <francois.fevotte@triscale-innov.com",
-    repo="https://github.com/triscale-innov/FastSweeping.jl/blob/{commit}{path}#{line}",
-    sitename="FastSweeping.jl",
+    repo="https://github.com/triscale-innov/Eikonal.jl/blob/{commit}{path}#{line}",
+    sitename="Eikonal.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://triscale-innov.github.io/FastSweeping.jl",
+        canonical="https://triscale-innov.github.io/Eikonal.jl",
         assets=String[],
     ),
     pages=[
@@ -19,6 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/triscale-innov/FastSweeping.jl",
+    repo="github.com/triscale-innov/Eikonal.jl",
     devbranch="main",
 )

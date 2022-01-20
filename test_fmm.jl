@@ -1,4 +1,4 @@
-using FastSweeping
+using Eikonal
 using Plots
 using Printf
 
@@ -28,7 +28,7 @@ fm′ = deepcopy(fm)
 # Post-processing & visualization
 function plot_contour(fm; tmax=maximum(fm.t))
     plt = plot(title="Test FMM", dpi=300)
-    contour!(min.(fm.t', tmax), levels=20, fill=true, c=:thermal)
+    contour!(min.(fm.t', tmax), levels=20, fill=true, c=:coolwarm)
 end
 
 @info "Computing arrival times using the FMM"
@@ -36,7 +36,7 @@ end
 
 @info "Generating image"
 begin
-    plt = plot_contour(fm, tmax=3000)
+    plt = plot_contour(fm, tmax=fm.t[3050, 475])
     for pos in ((1500, 2990),
                 (1930, 1600),
                 (1900, 1600),
@@ -45,7 +45,8 @@ begin
                 (3500,  300),
                 (3050,  475))
         r = ray(fm.t, pos, ρ=0.01)
-        scatter!(plt, first.(r), last.(r), markersize=0.01, label=nothing)
+        plot!(plt, first.(r), last.(r),
+              linewidth=2, linecolor=:green3, label=nothing)
     end
 
     savefig(plt, "tmp.svg"); mv("tmp.svg", "fmm.svg", force=true)
@@ -57,7 +58,7 @@ begin
     anim = Animation()
     for horizon in 50:50:2600
         converged = march!(fm′; tmax=horizon, verbose=true)
-        frame(anim, plot_contour(fm′, tmax=3000))
+        frame(anim, plot_contour(fm′, tmax=fm.t[3050, 475]))
         converged && break
     end
     gif(anim, "fmm.gif", fps=5)

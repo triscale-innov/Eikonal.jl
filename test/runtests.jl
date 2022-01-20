@@ -1,6 +1,6 @@
-using FastSweeping
+using Eikonal
 using Test
 
-@testset "FastSweeping.jl" begin
+@testset "Eikonal.jl" begin
     # Write your tests here.
 end

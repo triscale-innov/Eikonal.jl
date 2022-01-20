@@ -1,4 +1,4 @@
-module FastSweeping
+module Eikonal
 using LinearAlgebra
 using DataStructures
 using Printf
