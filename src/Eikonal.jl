@@ -2,76 +2,110 @@ module Eikonal
 using LinearAlgebra
 using DataStructures
 using Printf
-export sweep!
+export FastSweeping, sweep!
 export FastMarching, init!, march!
 export ray
 
 
+struct FastSweeping{T}
+    t      :: Matrix{T}
+    v      :: Matrix{T}
+    change :: Vector{T}
+    iter   :: Base.RefValue{Tuple{Int, Int}}  # (k, l)
+end
+
+function FastSweeping(m::Int, n::Int, T=Float64)
+    t = fill(typemax(T), m+1, n+1)
+    v = fill(typemax(T), m,   n)
+    change = ones(T, 4)
+    iter = Ref((1, 0))
+    FastSweeping(t, v, change, iter)
+end
+
+function init!(fs :: FastSweeping, source)
+    (i, j) = source
+    fs.t[i, j] = 0
+end
+
 # Fast Sweeping Method
-function sweep!(t::AbstractMatrix{T}, v::AbstractMatrix{T} ;
+function sweep!(fs :: FastSweeping{T};
                 verbose = false,
                 epsilon = eps(T),
+                nsweeps = typemax(Int),
                 ) where {T}
-    m, n = size(v); @assert size(t) == (m+1, n+1)
-    change = ones(T, 4)
+    (t, v, change, iter) = (fs.t, fs.v, fs.change, fs.iter)
+    (m, n) = size(v)
 
     ordered_indices(N, δ) = δ>0 ? (2:1:N+1) : (N:-1:1)
     quadrants = ((1,1), (-1,1), (-1,-1), (1, -1))
 
-    # Global iterations
-    @inbounds for k in 1:100
+    k = first(iter[]) # Global iter number
+    l = last(iter[])  # Quadrant index
+    sweep = 0         # Sweep number
+    @inbounds while true
+        l += 1
+        sweep += 1
+        if l == 5
+            l = 1
+            k += 1
+        end
+        iter[] = (k, l)
 
-        # One sweep per quadrant
-        for l in 1:4
-            (δᵢ,δⱼ) = quadrants[l]
-            maxchange = change[l] = zero(T)
-            maximum(change) <= epsilon && return t
+        (δᵢ,δⱼ) = quadrants[l]
+        maxchange = change[l] = zero(T)
+        maximum(change) <= epsilon && return true
 
-            sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
-            sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
+        sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
+        sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
 
-            for j in ordered_indices(n, δⱼ)
-                for i in ordered_indices(m, δᵢ)
-                    vᵢⱼ = v[i-sᵢ, j-sⱼ]
-                    tᵢ  = t[i-δᵢ, j]
-                    tⱼ  = t[i, j-δⱼ]
+        for j in ordered_indices(n, δⱼ)
+            for i in ordered_indices(m, δᵢ)
+                vᵢⱼ = v[i-sᵢ, j-sⱼ]
+                tᵢ  = t[i-δᵢ, j]
+                tⱼ  = t[i, j-δⱼ]
 
-                    # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
-                    #
-                    # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
-                    a = 2
-                    b = -2*(tᵢ + tⱼ)
-                    c = tᵢ^2 + tⱼ^2 - vᵢⱼ^2
-                    Δ = b^2 - 4*a*c
+                # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
+                #
+                # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
+                a = 2
+                b = -2*(tᵢ + tⱼ)
+                c = tᵢ^2 + tⱼ^2 - vᵢⱼ^2
+                Δ = b^2 - 4*a*c
 
-                    t₁ = t₂ = typemax(T)
-                    if Δ>0                         # TODO: really need to compute both roots?
-                        t₁ = (-b + √(Δ)) / 2a
-                        t₁ > max(tᵢ, tⱼ) || (t₁ = typemax(T))
+                t₁ = t₂ = typemax(T)
+                if Δ>0                         # TODO: really need to compute both roots?
+                    t₁ = (-b + √(Δ)) / 2a
+                    t₁ > max(tᵢ, tⱼ) || (t₁ = typemax(T))
 
-                        t₂ = (-b - √(Δ)) / 2a
-                        t₂ > max(tᵢ, tⱼ) || (t₂ = typemax(T))
-                    end
+                    t₂ = (-b - √(Δ)) / 2a
+                    t₂ > max(tᵢ, tⱼ) || (t₂ = typemax(T))
+                end
 
-                    # Hyp: ∇y == 0  or  ∇x == 0
-                    t₃ = vᵢⱼ + tᵢ
-                    t₄ = vᵢⱼ + tⱼ
+                # Hyp: ∇y == 0  or  ∇x == 0
+                t₃ = vᵢⱼ + tᵢ
+                t₄ = vᵢⱼ + tⱼ
 
-                    # Update if necessary
-                    tmin = min(t₁, t₂, t₃, t₄)
-                    if tmin < t[i,j]
-                        maxchange = max(maxchange, (t[i,j]-tmin)/tmin)
-                        t[i,j] = tmin
-                    end
+                # Update if necessary
+                tmin = min(t₁, t₂, t₃, t₄)
+                if tmin < t[i,j]
+                    maxchange = max(maxchange, (t[i,j]-tmin)/tmin)
+                    t[i,j] = tmin
                 end
             end
-            verbose && println("iter $k, sweep $l: change = $maxchange")
-            change[l] = maxchange
+
         end
+        verbose && println("iter $k, sweep $l: change = $maxchange")
+        change[l] = maxchange
+
+        sweep >= nsweeps && return false
     end
 
     error("Max number of iterations reached!")
 end
+
+
+
+
 
 function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
     sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
@@ -107,12 +141,11 @@ function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
 end
 
 
-
 const CI = CartesianIndex{2}
 
 struct FastMarching{T}
-    t :: Matrix{T}
-    v :: Matrix{T}
+    t          :: Matrix{T}
+    v          :: Matrix{T}
     considered :: PriorityQueue{CI, T, Base.Order.ForwardOrdering}
 end
 
