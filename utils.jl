@@ -3,6 +3,15 @@ using Plots
 using Printf
 using PrettyTables
 
+function _savefig(plt, fname::String)
+    mktempdir() do path
+        tmp = joinpath(path, fname)
+        savefig(plt, tmp)
+        mv(tmp, fname, force=true)
+    end
+end
+
+
 begin
     struct TestCase end
 
@@ -47,8 +56,8 @@ begin
             plot!(plt, first.(r), last.(r),
                   linewidth=2, linecolor=:green3, label=nothing)
         end
-        savefig(plt, "tmp.svg"); mv("tmp.svg", "$output.svg", force=true)
-        savefig(plt, "tmp.png"); mv("tmp.png", "$output.png", force=true)
+        _savefig(plt, "$output.svg")
+        _savefig(plt, "$output.png")
     end
 end
 
@@ -142,8 +151,8 @@ begin
                      alignment = [:l,:r,:r,:r],
                      formatters = ft_printf("%5.2f", 2:4))
 
-        savefig(plt, "tmp.svg"); mv("tmp.svg", "$output.svg", force=true)
-        savefig(plt, "tmp.png"); mv("tmp.png", "$output.png", force=true)
+        _savefig(plt, "$output.svg")
+        _savefig(plt, "$output.png")
     end
 end
 

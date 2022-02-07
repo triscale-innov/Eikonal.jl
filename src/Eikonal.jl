@@ -2,6 +2,7 @@ module Eikonal
 using LinearAlgebra
 using DataStructures
 using Printf
+using Images
 export FastSweeping, sweep!
 export FastMarching, init!, march!
 export ray
@@ -239,5 +240,26 @@ function ray(t::AbstractMatrix{T}, pos; ρ=T(0.5)) where {T}
 
     res
 end
+
+
+function from_png(T, filename, colors)
+    coeffs = map(colors) do (color, invspeed)
+        parse(Colorant, color) => invspeed
+    end |> Dict
+
+    img = load(filename)
+    sol = FastSweeping(size(img)...)
+
+    col = collect(keys(coeffs))
+    map!(sol.v, img) do c
+        (_, i) = findmin(c′->colordiff(c,c′), col)
+        coeffs[col[i]]
+    end
+
+    sol
+end
+
+FastSweeping(filename::String, colors) = from_png(FastSweeping, filename, colors)
+FastMarching(filename::String, colors) = from_png(FastMarching, filename, colors)
 
 end
