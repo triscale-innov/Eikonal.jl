@@ -200,3 +200,35 @@ function anim(typ, fm::FastMarching;
     end
     gif(a, "fmm.gif", fps=5)
 end
+
+
+
+
+run!(fsm::FastSweeping) = sweep!(fsm, verbose=true, epsilon=1e-5)
+run!(fmm::FastMarching) = march!(fmm, verbose=true)
+
+# Indice (i,j) du pixel le plus proche de la position (x,y) dans la direction δ
+#
+# (i,j) = pos2ind((x,y), δ)
+# - si δ > 0, le centre du pixel (i,j) est au nord-est  de la position (x,y)
+# - si δ < 0, le centre du pixel (i,j) est au sud-ouest de la position (x,y)
+pos2ind(sw, pos, δ) = ceil.(Int,  δ .+ (pos .- sw) ./ h)
+pos2ind(sw, pos)    = round.(Int,      (pos .- sw) ./ h)
+
+function rasterize(input, h, materials::Dict{Symbol, T}) where {T}
+    sw = Tuple(input["bounding_box"]["sw"])
+    ne = Tuple(input["bounding_box"]["ne"])
+
+    (Nx, Ny) = pos2ind(sw, ne, -0.5)
+    grid = fill(materials[:UNKNOWN], Nx, Ny)
+
+    k = 0
+    for rect in input["rects"]
+        (i1, j1) = pos2ind(sw, Tuple(rect["sw"]),  0.5)
+        (i2, j2) = pos2ind(sw, Tuple(rect["ne"]), -0.5)
+
+        grid[i1:i2, j1:j2] .= materials[Symbol(rect["material"])]
+    end
+
+    grid
+end

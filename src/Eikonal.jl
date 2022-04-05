@@ -176,8 +176,9 @@ function march!(fm::FastMarching{T};
     valid = CartesianIndices(t)
 
     k = 0
-    tᵢⱼ = 0.
+    tᵢⱼ = 0.0
     converged = false
+    print_progress = 0
     @inbounds while true
         (converged = isempty(considered)) && break
         ij = dequeue!(considered)
@@ -201,8 +202,14 @@ function march!(fm::FastMarching{T};
             end
         end
 
-        (k += 1) == itermax  && break
+        (k += 1) == itermax    && break
         (tᵢⱼ = t[ij]) >= tmax  && break
+
+        if verbose && k > print_progress
+            progress = 100 * k / prod(size(t)) |> round |> Int
+            print_progress = (progress + 1) * prod(size(t)) / 100
+            @printf(stderr, "%3d%%   t=%.2e\r", progress, tᵢⱼ)
+        end
     end
 
     verbose && @printf("%10d %10.2f\n", k, tᵢⱼ)
