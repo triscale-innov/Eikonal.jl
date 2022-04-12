@@ -212,8 +212,7 @@ run!(fmm::FastMarching) = march!(fmm, verbose=true)
 # (i,j) = pos2ind((x,y), δ)
 # - si δ > 0, le centre du pixel (i,j) est au nord-est  de la position (x,y)
 # - si δ < 0, le centre du pixel (i,j) est au sud-ouest de la position (x,y)
-pos2ind(sw, pos, δ) = ceil.(Int,  δ .+ (pos .- sw) ./ h)
-pos2ind(sw, pos)    = round.(Int,      (pos .- sw) ./ h)
+pos2ind(sw, pos, δ=0.0) = ceil.(Int,  δ .+ (pos .- sw) ./ h)
 
 function rasterize(input, h, materials::Dict{Symbol, T}) where {T}
     sw = Tuple(input["bounding_box"]["sw"])
