@@ -6,6 +6,7 @@ using Images
 export FastSweeping, sweep!
 export FastMarching, init!, march!
 export ray
+export vertex2cell
 
 
 struct FastSweeping{T}
@@ -268,5 +269,19 @@ end
 
 FastSweeping(filename::String, colors) = from_png(FastSweeping, filename, colors)
 FastMarching(filename::String, colors) = from_png(FastMarching, filename, colors)
+
+
+# Convert from vertex-based arrival times to cell-based times
+function vertex2cell(t)
+    (m,n) = size(t) .- 1
+
+    t′ = similar(t, m, n)
+    @inbounds for i in 1:m
+        for j in 1:n
+            t′[i, j] = min(t[i,j], t[i+1,j], t[i,j+1], t[i+1,j+1])
+        end
+    end
+    t′
+end
 
 end
