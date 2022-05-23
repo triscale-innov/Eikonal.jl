@@ -230,8 +230,12 @@ function ray(t::AbstractMatrix{T}, pos; ρ=T(0.5)) where {T}
 
     # Gradient descent
     while true
-        ∇ᵢ = (t[i+1,j] - t[i-1,j]) / 2   # Centered differences
-        ∇ⱼ = (t[i,j+1] - t[i,j-1]) / 2   # (inconsistent with the FSM: is it a problem?)
+        tn = get(t, CartesianIndex(i+1, j), 2*t[i,j])
+        ts = get(t, CartesianIndex(i-1, j), 2*t[i,j])
+        tw = get(t, CartesianIndex(i, j+1), 2*t[i,j])
+        te = get(t, CartesianIndex(i, j-1), 2*t[i,j])
+        ∇ᵢ = (tn-ts) / 2   # Centered differences
+        ∇ⱼ = (tw-te) / 2   # (inconsistent with the FSM: is it a problem?)
         ∇  = (∇ᵢ, ∇ⱼ)
 
         # t is not differentiable near the origin
