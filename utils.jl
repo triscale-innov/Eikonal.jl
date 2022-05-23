@@ -202,7 +202,28 @@ function anim(typ, fm::FastMarching;
 end
 
 
-
-
 run!(fsm::FastSweeping) = sweep!(fsm, verbose=true, epsilon=1e-5)
 run!(fmm::FastMarching) = march!(fmm, verbose=true)
+
+
+
+
+# Homogeneous solver (internally uses FSM)
+
+struct HomFSM
+    solver :: FastSweeping
+    HomFSM(params...) = new(FastSweeping(params...))
+end
+
+Base.getproperty(sol::HomFSM, name::Symbol) = getproperty(sol, Val(name))
+Base.getproperty(sol::HomFSM, ::Val{NAME}) where NAME = getfield(sol, NAME)
+Base.getproperty(sol::HomFSM, ::Val{:v}) = getproperty(sol.solver, :v)
+Base.getproperty(sol::HomFSM, ::Val{:t}) = getproperty(sol.solver, :t)
+
+Eikonal.init!(sol::HomFSM, params...) = init!(sol.solver, params...)
+
+function run!(sol::HomFSM)
+    avg = sum(sol.solver.v) / length(sol.solver.v)
+    sol.solver.v .= avg
+    run!(sol.solver)
+end
