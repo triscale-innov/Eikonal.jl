@@ -16,6 +16,12 @@ struct FastSweeping{T}
     iter   :: Base.RefValue{Tuple{Int, Int}}  # (k, l)
 end
 
+function Base.show(io::IO, fs::FastSweeping)
+    (m,n) = size(fs.v)
+    println(io, "FastSweeping solver on a $m×$n grid")
+end
+
+
 function FastSweeping(m::Int, n::Int, T=Float64)
     t = fill(typemax(T), m+1, n+1)
     v = fill(typemax(T), m,   n)
@@ -219,7 +225,7 @@ end
 
 
 # Trajectory reconstruction using a gradient descent algorithm
-function ray(t::AbstractMatrix{T}, pos; ρ=T(0.5)) where {T}
+function ray(t::AbstractMatrix{T}, pos; ρ=T(0.1)) where {T}
     # ρ is the step of the gradient descent (in terms of cell size)
     # should be O(1) but can be decreased in cases where the gradient can be very large
 
