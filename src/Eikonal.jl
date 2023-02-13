@@ -1,8 +1,10 @@
 module Eikonal
-using LinearAlgebra
+
 using DataStructures
-using Printf
 using Images
+using LinearAlgebra
+using Printf
+
 export FastSweeping, sweep!
 export FastMarching, init!, march!
 export ray
