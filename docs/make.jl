@@ -11,6 +11,7 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://triscale-innov.github.io/Eikonal.jl",
+        edit_link="main",
         assets=String[],
     ),
     pages=[
