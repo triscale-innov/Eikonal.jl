@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = FastSweeping
+CurrentModule = Eikonal
 ```
 
-# FastSweeping
+# Eikonal
 
-Documentation for [FastSweeping](https://github.com/triscale-innov/FastSweeping.jl).
+Documentation for [Eikonal](https://github.com/triscale-innov/Eikonal.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [FastSweeping]
+Modules = [Eikonal]
 ```
