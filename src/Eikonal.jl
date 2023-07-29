@@ -11,6 +11,39 @@ export ray
 export vertex2cell
 
 
+function rbgc(n)
+    n == 1 && return [(0,),(1,)]
+
+    r = rbgc(n-1)
+    res1 = map(r) do c
+        (c..., 0)
+    end
+    res2 = map(reverse(r)) do c
+        (c..., 1)
+    end
+    return append!(res1, res2)
+end
+
+struct Orthant{D}
+    δ :: NTuple{D, Int}
+    s :: NTuple{D, Int}
+    rev :: NTuple{D, Bool}
+
+    function Orthant(code::NTuple{D, Int}) where {D}
+        δ = map(code) do cᵢ
+            cᵢ == 0 ? 1 : -1
+        end
+        s = map(δ) do δᵢ
+            δᵢ < 0 ? 0 : 1
+        end
+        rev = map(δ) do δᵢ
+            δᵢ < 0 ? true : false
+        end
+        new{D}(δ, s, rev)
+    end
+end
+
+
 struct FastSweeping{T}
     t      :: Matrix{T}
     v      :: Matrix{T}
@@ -44,10 +77,15 @@ function sweep!(fs :: FastSweeping{T};
                 nsweeps = typemax(Int),
                 ) where {T}
     (t, v, change, iter) = (fs.t, fs.v, fs.change, fs.iter)
-    (m, n) = size(v)
+    D = ndims(t)
 
-    ordered_indices(N, δ) = δ>0 ? (2:1:N+1) : (N:-1:1)
-    quadrants = ((1,1), (-1,1), (-1,-1), (1, -1))
+    square(x) = x*x
+    function indices(axis, rev)
+        a = rev ? reverse(axis) : StepRange(axis)
+        a[2:end]
+    end
+
+    quadrants = map(Orthant, rbgc(D)) :: Vector{Orthant{D}}
 
     k = first(iter[]) # Global iter number
     l = last(iter[])  # Quadrant index
@@ -55,54 +93,62 @@ function sweep!(fs :: FastSweeping{T};
     @inbounds while true
         l += 1
         sweep += 1
-        if l == 5
+        if l > length(quadrants)
             l = 1
             k += 1
         end
         iter[] = (k, l)
 
-        (δᵢ,δⱼ) = quadrants[l]
         maxchange = change[l] = zero(T)
         maximum(change) <= epsilon && return true
 
-        sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
-        sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
+        # Steps (±1) in each direction
+        δ = quadrants[l].δ
 
-        for j in ordered_indices(n, δⱼ)
-            for i in ordered_indices(m, δᵢ)
-                vᵢⱼ = v[i-sᵢ, j-sⱼ]
-                tᵢ  = t[i-δᵢ, j]
-                tⱼ  = t[i, j-δⱼ]
+        # Offset between vertex-based indices (in `t`)
+        # and cell-based indices (in `v`)
+        s = quadrants[l].s
 
-                # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
-                #
-                # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
-                a = 2
-                b = -2*(tᵢ + tⱼ)
-                c = tᵢ^2 + tⱼ^2 - vᵢⱼ^2
-                Δ = b^2 - 4*a*c
+        # Indicates whether each axis should be reversed
+        rev = quadrants[l].rev
 
-                t₁ = t₂ = typemax(T)
-                if Δ>0                         # TODO: really need to compute both roots?
-                    t₁ = (-b + √(Δ)) / 2a
-                    t₁ > max(tᵢ, tⱼ) || (t₁ = typemax(T))
+        for I in CartesianIndices(indices.(axes(v), rev))
+            vᵢⱼ = v[I - CartesianIndex(s)]
 
-                    t₂ = (-b - √(Δ)) / 2a
-                    t₂ > max(tᵢ, tⱼ) || (t₂ = typemax(T))
-                end
-
-                # Hyp: ∇y == 0  or  ∇x == 0
-                t₃ = vᵢⱼ + tᵢ
-                t₄ = vᵢⱼ + tⱼ
-
-                # Update if necessary
-                tmin = min(t₁, t₂, t₃, t₄)
-                if tmin < t[i,j]
-                    maxchange = max(maxchange, (t[i,j]-tmin)/tmin)
-                    t[i,j] = tmin
-                end
+            tt = ntuple(Val(D)) do k
+                dir = ntuple(l -> k==l ? δ[k] : 0, Val(D))
+                t[I - CartesianIndex(dir)]
             end
 
+            # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
+            #
+            # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
+            a = 2
+            b = -2*sum(tt)
+            c = sum(square, tt) - vᵢⱼ^2
+            Δ = b^2 - 4*a*c
+
+            ttmax = maximum(tt)
+            ttmin = minimum(tt)
+
+            t₁ = t₂ = typemax(T)
+            if Δ>0                         # TODO: really need to compute both roots?
+                t₁ = (-b + √(Δ)) / 2a
+                t₁ > ttmax || (t₁ = typemax(T))
+
+                # t₂ = (-b - √(Δ)) / 2a
+                # t₂ > ttmax || (t₂ = typemax(T))
+            end
+
+            # Hyp: ∇y == 0  or  ∇x == 0
+            t₃ = vᵢⱼ + ttmin
+
+            # Update if necessary
+            tmin = min(t₁, t₂, t₃)
+            if tmin < t[I]
+                maxchange = max(maxchange, (t[I]-tmin)/tmin)
+                t[I] = tmin
+            end
         end
         verbose && println("iter $k, sweep $l: change = $maxchange")
         change[l] = maxchange
