@@ -76,8 +76,7 @@ function sweep!(fs :: FastSweeping{T};
                 epsilon = eps(T),
                 nsweeps = typemax(Int),
                 ) where {T}
-    (t, v, change, iter) = (fs.t, fs.v, fs.change, fs.iter)
-    D = ndims(t)
+    D = ndims(fs.v)
 
     square(x) = x*x
     function indices(axis, rev)
@@ -87,9 +86,9 @@ function sweep!(fs :: FastSweeping{T};
 
     quadrants = map(Orthant, rbgc(D)) :: Vector{Orthant{D}}
 
-    k = first(iter[]) # Global iter number
-    l = last(iter[])  # Quadrant index
-    sweep = 0         # Sweep number
+    k = first(fs.iter[]) # Global iter number
+    l = last(fs.iter[])  # Quadrant index
+    sweep = 0            # Sweep number
     @inbounds while true
         l += 1
         sweep += 1
@@ -97,10 +96,10 @@ function sweep!(fs :: FastSweeping{T};
             l = 1
             k += 1
         end
-        iter[] = (k, l)
+        fs.iter[] = (k, l)
 
-        maxchange = change[l] = zero(T)
-        maximum(change) <= epsilon && return true
+        maxchange = fs.change[l] = zero(T)
+        maximum(fs.change) <= epsilon && return true
 
         # Steps (±1) in each direction
         δ = quadrants[l].δ
@@ -112,46 +111,40 @@ function sweep!(fs :: FastSweeping{T};
         # Indicates whether each axis should be reversed
         rev = quadrants[l].rev
 
-        for I in CartesianIndices(indices.(axes(v), rev))
-            vᵢⱼ = v[I - CartesianIndex(s)]
+        for I in CartesianIndices(indices.(axes(fs.v), rev))
+            v = fs.v[I - CartesianIndex(s)]
 
-            tt = ntuple(Val(D)) do k
+            tᵢ = ntuple(Val(D)) do k
                 dir = ntuple(l -> k==l ? δ[k] : 0, Val(D))
-                t[I - CartesianIndex(dir)]
+                fs.t[I - CartesianIndex(dir)]
             end
 
             # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
             #
             # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
             a = 2
-            b = -2*sum(tt)
-            c = sum(square, tt) - vᵢⱼ^2
+            b = -2*sum(tᵢ)
+            c = sum(square, tᵢ) - v^2
             Δ = b^2 - 4*a*c
 
-            ttmax = maximum(tt)
-            ttmin = minimum(tt)
-
-            t₁ = t₂ = typemax(T)
-            if Δ>0                         # TODO: really need to compute both roots?
-                t₁ = (-b + √(Δ)) / 2a
-                t₁ > ttmax || (t₁ = typemax(T))
-
-                # t₂ = (-b - √(Δ)) / 2a
-                # t₂ > ttmax || (t₂ = typemax(T))
+            t = typemax(T)
+            if Δ >= 0
+                t = (-b + √(Δ)) / 2a
+                t > maximum(tᵢ) || (t = typemax(T))
+            else
+                # Hyp: ∇y == 0  or  ∇x == 0
+                # TODO: Factor this out as an N-1 dimensional update
+                t = minimum(tᵢ) + v
             end
 
-            # Hyp: ∇y == 0  or  ∇x == 0
-            t₃ = vᵢⱼ + ttmin
-
             # Update if necessary
-            tmin = min(t₁, t₂, t₃)
-            if tmin < t[I]
-                maxchange = max(maxchange, (t[I]-tmin)/tmin)
-                t[I] = tmin
+            if t < fs.t[I]
+                maxchange = max(maxchange, (fs.t[I]-t)/t)
+                fs.t[I] = t
             end
         end
         verbose && println("iter $k, sweep $l: change = $maxchange")
-        change[l] = maxchange
+        fs.change[l] = maxchange
 
         sweep >= nsweeps && return false
     end
