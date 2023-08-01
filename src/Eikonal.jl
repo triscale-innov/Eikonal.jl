@@ -11,10 +11,16 @@ export ray
 export vertex2cell
 
 
-function rbgc(n)
+"""
+    brgc(n)
+
+Get the Binary-Reflected Gray Code list for `n` bits (most significant bit last,
+i.e. using the reflect-and-suffix method).
+"""
+function brgc(n)
     n == 1 && return [(0,),(1,)]
 
-    r = rbgc(n-1)
+    r = brgc(n-1)
     res1 = map(r) do c
         (c..., 0)
     end
@@ -43,7 +49,6 @@ struct Orthant{D}
     end
 end
 
-
 struct FastSweeping{T}
     t      :: Matrix{T}
     v      :: Matrix{T}
@@ -70,6 +75,51 @@ function init!(fs :: FastSweeping, source)
     fs.t[i, j] = 0
 end
 
+"""
+    subtuples(t::NTuple{N, T}) where {N, T}
+
+Generate the list of all sub-tuples obtained by removing one element from `t`.
+"""
+@generated function subtuples(t::NTuple{N, T}) where {N, T}
+    expr = Expr(:tuple)
+    expr.args = map(1:N) do i
+        Expr(:tuple, (:(t[$j]) for j in 1:N if i != j)...)
+    end
+    expr
+end
+
+function update(tᵢ::NTuple{N, T}, v) where {N, T}
+    square(x) = x*x
+
+    # Hyp: ∇t is in an N-dimensional orthant
+    #      tᵢ contains the values of t in the N neighboring vertices
+    #
+    # t satisfies:
+    #    a⋅t² + b⋅t + c = 0
+    a = N
+    b = -2*sum(tᵢ)
+    c = sum(square, tᵢ) - v^2
+    Δ = b^2 - 4*a*c
+
+    if Δ >= 0
+        t = (-b + √(Δ)) / 2a
+        t <= maximum(tᵢ) && return typemax(T)
+        return t
+    else
+        # ∇t actually belongs to the boundary of the orthant
+        # => perform an N-1 dimensional update
+        t = typemax(T)
+        for tᵢ′ in subtuples(tᵢ)
+            t = min(t, update(tᵢ′, v))
+        end
+        return t
+    end
+end
+
+function update(tᵢ::NTuple{1, T}, v) where {T}
+    return tᵢ[1] + v
+end
+
 # Fast Sweeping Method
 function sweep!(fs :: FastSweeping{T};
                 verbose = false,
@@ -84,7 +134,7 @@ function sweep!(fs :: FastSweeping{T};
         a[2:end]
     end
 
-    quadrants = map(Orthant, rbgc(D)) :: Vector{Orthant{D}}
+    quadrants = map(Orthant, brgc(D)) :: Vector{Orthant{D}}
 
     k = first(fs.iter[]) # Global iter number
     l = last(fs.iter[])  # Quadrant index
@@ -118,24 +168,7 @@ function sweep!(fs :: FastSweeping{T};
                 dir = ntuple(l -> k==l ? δ[k] : 0, Val(D))
                 fs.t[I - CartesianIndex(dir)]
             end
-
-            # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
-            #
-            # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
-            a = 2
-            b = -2*sum(tᵢ)
-            c = sum(square, tᵢ) - v^2
-            Δ = b^2 - 4*a*c
-
-            t = typemax(T)
-            if Δ >= 0
-                t = (-b + √(Δ)) / 2a
-                t > maximum(tᵢ) || (t = typemax(T))
-            else
-                # Hyp: ∇y == 0  or  ∇x == 0
-                # TODO: Factor this out as an N-1 dimensional update
-                t = minimum(tᵢ) + v
-            end
+            t = update(tᵢ, v)
 
             # Update if necessary
             if t < fs.t[I]
