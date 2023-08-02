@@ -49,30 +49,30 @@ struct Orthant{D}
     end
 end
 
-struct FastSweeping{T}
-    t      :: Matrix{T}
-    v      :: Matrix{T}
+struct FastSweeping{T, D}
+    t      :: Array{T, D}
+    v      :: Array{T, D}
     change :: Vector{T}
     iter   :: Base.RefValue{Tuple{Int, Int}}  # (k, l)
 end
 
 function Base.show(io::IO, fs::FastSweeping)
     (m,n) = size(fs.v)
-    println(io, "FastSweeping solver on a $m×$n grid")
+    grid_size = join(string.(size(fs.v)), "×")
+    println(io, "FastSweeping solver on a $grid_size grid")
 end
 
 
-function FastSweeping(m::Int, n::Int, T=Float64)
-    t = fill(typemax(T), m+1, n+1)
-    v = fill(typemax(T), m,   n)
-    change = ones(T, 4)
+function FastSweeping(T::DataType, siz::NTuple{D, Int}) where {D}
+    t = fill(typemax(T), (siz .+ 1)...)
+    v = fill(typemax(T), siz...)
+    change = ones(T, 2^D)
     iter = Ref((1, 0))
     FastSweeping(t, v, change, iter)
 end
 
 function init!(fs :: FastSweeping, source)
-    (i, j) = source
-    fs.t[i, j] = 0
+    fs.t[source...] = 0
 end
 
 """
@@ -88,7 +88,7 @@ Generate the list of all sub-tuples obtained by removing one element from `t`.
     expr
 end
 
-function update(tᵢ::NTuple{N, T}, v) where {N, T}
+@inline function update(tᵢ::NTuple{N, T}, v) where {N, T}
     square(x) = x*x
 
     # Hyp: ∇t is in an N-dimensional orthant
@@ -116,7 +116,7 @@ function update(tᵢ::NTuple{N, T}, v) where {N, T}
     end
 end
 
-function update(tᵢ::NTuple{1, T}, v) where {T}
+@inline function update(tᵢ::NTuple{1, T}, v) where {T}
     return tᵢ[1] + v
 end
 
@@ -161,7 +161,7 @@ function sweep!(fs :: FastSweeping{T};
         # Indicates whether each axis should be reversed
         rev = quadrants[l].rev
 
-        for I in CartesianIndices(indices.(axes(fs.v), rev))
+        for I in CartesianIndices(indices.(axes(fs.t), rev))
             v = fs.v[I - CartesianIndex(s)]
 
             tᵢ = ntuple(Val(D)) do k
@@ -340,7 +340,7 @@ function from_png(T, filename, colors)
     end |> Dict
 
     img = load(filename)
-    sol = FastSweeping(size(img)...)
+    sol = T(Float64, size(img))
 
     col = collect(keys(coeffs))
     map!(sol.v, img) do c

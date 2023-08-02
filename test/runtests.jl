@@ -3,8 +3,8 @@ using Test
 
 @testset "Eikonal.jl" begin
     @testset "FastSweeping" begin
-        m, n = 1000, 1200
-        fsm = FastSweeping(m, n)
+        siz = (1000, 1200)
+        fsm = FastSweeping(Float64, siz)
         @test sprint(show, fsm) == "FastSweeping solver on a 1000×1200 grid\n"
 
         fsm.v .= 1
@@ -18,6 +18,21 @@ using Test
 
         r = ray(fsm.t, (x1, y1))
         @test last(r) == (x0, y0)
+    end
+
+    @testset "FastSweeping 3D" begin
+        siz = (100, 110, 120)
+        fsm = FastSweeping(Float64, siz)
+        @test sprint(show, fsm) == "FastSweeping solver on a 100×110×120 grid\n"
+
+        fsm.v .= 1
+
+        source = 50, 55, 60
+        init!(fsm, source)
+        sweep!(fsm, verbose=true)
+
+        pos = 5, 5, 6
+        @test fsm.t[pos...] ≈ sqrt(sum((pos.-source).^2))  rtol=5e-2
     end
 
     @testset "FastMarching" begin
