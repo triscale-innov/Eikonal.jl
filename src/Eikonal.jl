@@ -59,7 +59,7 @@ end
 function Base.show(io::IO, fs::FastSweeping)
     (m,n) = size(fs.v)
     grid_size = join(string.(size(fs.v)), "×")
-    println(io, "FastSweeping solver on a $grid_size grid")
+    print(io, "FastSweeping solver on a $grid_size grid")
 end
 
 
@@ -73,6 +73,8 @@ end
 
 function init!(fs :: FastSweeping, source)
     fs.t[source...] = 0
+    fs.change .= Inf
+    fs
 end
 
 """
@@ -101,19 +103,18 @@ end
     c = sum(square, tᵢ) - v^2
     Δ = b^2 - 4*a*c
 
+    t = typemax(T)
     if Δ >= 0
         t = (-b + √(Δ)) / 2a
-        t <= maximum(tᵢ) && return typemax(T)
-        return t
-    else
-        # ∇t actually belongs to the boundary of the orthant
-        # => perform an N-1 dimensional update
-        t = typemax(T)
-        for tᵢ′ in subtuples(tᵢ)
-            t = min(t, update(tᵢ′, v))
-        end
-        return t
+        t <= maximum(tᵢ) && (t = typemax(T))
     end
+
+    # Hyp: ∇t lies on the boundary of the orthant
+    # => perform N-1 dimensional updates
+    for tᵢ′ in subtuples(tᵢ)
+        t = min(t, update(tᵢ′, v))
+    end
+    return t
 end
 
 @inline function update(tᵢ::NTuple{1, T}, v) where {T}
@@ -184,10 +185,6 @@ function sweep!(fs :: FastSweeping{T};
 
     error("Max number of iterations reached!")
 end
-
-
-
-
 
 function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
     sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
@@ -299,35 +296,70 @@ end
 
 
 # Trajectory reconstruction using a gradient descent algorithm
-function ray(t::AbstractMatrix{T}, pos; ρ=T(0.1)) where {T}
+ray(t::AbstractArray{T,D}, pos) where {T,D} = ray(t, pos, Integration(0.1))
+
+struct Integration
+    rho :: Float64
+end
+
+function ray(t::AbstractArray{T,D}, pos, method::Integration) where {T,D}
     # ρ is the step of the gradient descent (in terms of cell size)
     # should be O(1) but can be decreased in cases where the gradient can be very large
+    ρ = method.rho
 
     res = [pos]
 
-    (i,j) = pos               # We need to keep track of integer cell indices
-    (x,y) = eltype(t).(pos)   # as well as floating-point position
+    # We need to keep track of floating point coordinates
+    x = eltype(t).(pos)
 
     # Gradient descent
     while true
-        tn = get(t, CartesianIndex(i+1, j), 2*t[i,j])
-        ts = get(t, CartesianIndex(i-1, j), 2*t[i,j])
-        tw = get(t, CartesianIndex(i, j+1), 2*t[i,j])
-        te = get(t, CartesianIndex(i, j-1), 2*t[i,j])
-        ∇ᵢ = (tn-ts) / 2   # Centered differences
-        ∇ⱼ = (tw-te) / 2   # (inconsistent with the FSM: is it a problem?)
-        ∇  = (∇ᵢ, ∇ⱼ)
+        I = CartesianIndex(round.(Int, x)) # Integer coordinates
+        ∇ = ntuple(Val(D)) do k
+            δ = CartesianIndex(ntuple(l -> k==l ? 1 : 0, Val(D)))
+            t1 = min(t[I + δ], 2*t[I])
+            t2 = min(t[I - δ], 2*t[I])
+            (t1-t2) / 2
+        end
 
-        # t is not differentiable near the origin
-        # => stop a bit before arriving
-        t[i,j] <= ρ * norm(∇) && break
+        t_min = ntuple(Val(D)) do k
+            δ = CartesianIndex(ntuple(l -> k==l ? 1 : 0, Val(D)))
+            min(t[I + δ], t[I - δ])
+        end
 
-        # Fixed step length ρ
-        x -= ρ * ∇ᵢ / norm(∇); i = round(Int, x)
-        y -= ρ * ∇ⱼ / norm(∇); j = round(Int, y)
+        # Stop when we reached a local minimum
+        minimum(t_min) >= t[I] && break
+
+        # Update position with a fixed step length ρ
+        x = x .- ρ .* ∇ ./ norm(∇)
 
         # Only record point if it is new
-        (i,j) != last(res) && push!(res, (i,j))
+        pos = Tuple(I)
+        pos != last(res) && push!(res, pos)
+    end
+
+    res
+end
+
+struct NearestMin end
+function ray(t::AbstractArray{T,D}, pos, ::NearestMin) where {T, D}
+    I = CartesianIndex(pos)
+    res = [pos]
+
+    while true
+        # Find minimal time in a box surrounding the current position
+        box = I-oneunit(I):I+oneunit(I)
+        t_min, ibox = findmin(box) do I′
+            I′ ∈ CartesianIndices(t) ? t[I′] : Inf
+        end
+        I′ = box[ibox]
+
+        # Stop when we reached a local minimum
+        I == I′ && break
+
+        # Update current position
+        I = I′
+        push!(res, Tuple(I))
     end
 
     res
