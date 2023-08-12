@@ -26,12 +26,16 @@ This package provides implementations for two methods
 
 ## Example: path planning in a maze
 
+This example is also available in notebook form:
+[![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/readme/README.ipynb)
+[![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/readme/README.ipynb)
+
 In this example, we solve an Eikonal equation in order to find a shortest path
 in a maze described by the following picture:
 
 ![](docs/readme/maze.png)
 
-We first load the package
+We first load the package:
 
 ````julia
 using Eikonal
@@ -43,15 +47,10 @@ provided to create the solver from an image, in which case the grid size is
 taken from the image size, and the slowness $\sigma$ is initialized based on
 the pixel colors. Here, we'll consider walls (black pixels) to be
 unreacheable: they have infinite slowness. White pixels have an (arbitrary)
-slowness.
+finite slowness.
 
 ````julia
 solver = FastSweeping("maze.png", ["white"=>1.0, "black"=>Inf])
-````
-
-````
-FastSweeping solver on a 1024×1970 grid
-
 ````
 
 NB: it would also have been possible to create an uninitialized solver providing only its grid size. The slowness field could then be initialized by accessing its internal field `v`:
@@ -68,19 +67,11 @@ entrance = (10, 100)
 init!(solver, entrance)
 ````
 
-````
-0
-````
-
 The eikonal equation can now be solved using the FSM, yielding a field of
 first arrival times in each grid cell.
 
 ````julia
-sweep!(solver, verbose=true, epsilon=1e-5)
-````
-
-````
-true
+@time sweep!(solver, verbose=true, epsilon=1e-5)
 ````
 
 First arrival times are infinite in some grid cells (since pixels inside walls
@@ -99,21 +90,6 @@ goal, backtracking in the arrival times field. The ray is represented as a vecto
 
 ````julia
 r = ray(solver.t, goal)
-r[1:10]
-````
-
-````
-10-element Vector{Tuple{Int64, Int64}}:
- (1015, 1871)
- (1015, 1870)
- (1014, 1870)
- (1014, 1869)
- (1014, 1868)
- (1013, 1868)
- (1013, 1867)
- (1012, 1867)
- (1012, 1866)
- (1012, 1865)
 ````
 
 Let's finally plot everything:
@@ -124,12 +100,13 @@ Let's finally plot everything:
 ````julia
 using Plots
 
-plot(title="Path planning with the FSM in a maze")
-contour!(solver.t, levels=50, fill=true, c=:coolwarm)
+plot(title="Path planning with the FSM in a maze", dpi=300)
+contour!(solver.t, levels=30, fill=true, c=:coolwarm)
 plot!(last.(r), first.(r),
       linewidth=2, linecolor=:green3, label=nothing)
 ````
-![](docs/readme/README-23.svg)
+
+![](docs/readme/path.png)
 
 ---
 

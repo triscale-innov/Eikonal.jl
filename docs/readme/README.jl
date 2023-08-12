@@ -1,9 +1,9 @@
 # # Fast Sweeping & Fast Marching methods for the solution of eikonal equations
 
-#md # [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://triscale-innov.github.io/FastSweeping.jl/stable)
-#md # [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://triscale-innov.github.io/FastSweeping.jl/dev)
-#md # [![Build Status](https://github.com/triscale-innov/FastSweeping.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/triscale-innov/FastSweeping.jl/actions/workflows/CI.yml?query=branch%3Amain)
-#md # [![Coverage](https://codecov.io/gh/triscale-innov/FastSweeping.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/triscale-innov/FastSweeping.jl)
+#md # [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://triscale-innov.github.io/Eikonal.jl/stable/)
+#md # [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://triscale-innov.github.io/Eikonal.jl/dev/)
+#md # [![Build Status](https://github.com/triscale-innov/Eikonal.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/triscale-innov/Eikonal.jl/actions/workflows/CI.yml?query=branch%3Amain)
+#md # [![Coverage](https://codecov.io/gh/triscale-innov/Eikonal.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/triscale-innov/Eikonal.jl)
 
 # Julia implementations of solvers for general Eikonal equations of the form
 
@@ -27,6 +27,10 @@
 
 # ## Example: path planning in a maze
 
+#md # This example is also available in notebook form:
+#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/readme/README.ipynb)
+#md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/readme/README.ipynb)
+
 # In this example, we solve an Eikonal equation in order to find a shortest path
 # in a maze described by the following picture:
 #
@@ -34,8 +38,11 @@
 
 #-
 
-# We first load the package
+# We first load the package:
 
+import Pkg                                         #hide
+Pkg.activate(joinpath(@__DIR__, ".."), io=devnull) #hide
+Pkg.resolve(io=devnull)                            #hide
 using Eikonal
 
 #-
@@ -46,7 +53,7 @@ using Eikonal
 # taken from the image size, and the slowness $\sigma$ is initialized based on
 # the pixel colors. Here, we'll consider walls (black pixels) to be
 # unreacheable: they have infinite slowness. White pixels have an (arbitrary)
-# slowness.
+# finite slowness.
 
 solver = FastSweeping("maze.png", ["white"=>1.0, "black"=>Inf])
 
@@ -72,7 +79,7 @@ init!(solver, entrance)
 # The eikonal equation can now be solved using the FSM, yielding a field of
 # first arrival times in each grid cell.
 
-sweep!(solver, verbose=true, epsilon=1e-5)
+@time sweep!(solver, verbose=true, epsilon=1e-5)
 
 #-
 
@@ -91,7 +98,6 @@ solver.t .= min.(solver.t, 1.1*tmax);
 # goal, backtracking in the arrival times field. The ray is represented as a vector of grid coordinates:
 
 r = ray(solver.t, goal)
-r[1:10]
 
 #-
 
@@ -102,7 +108,10 @@ r[1:10]
 
 using Plots
 
-plot(title="Path planning with the FSM in a maze")
-contour!(solver.t, levels=50, fill=true, c=:coolwarm)
+plot(title="Path planning with the FSM in a maze", dpi=300)
+contour!(solver.t, levels=30, fill=true, c=:coolwarm)
 plot!(last.(r), first.(r),
       linewidth=2, linecolor=:green3, label=nothing)
+savefig("path.png") #src
+
+#md # ![](path.png)
