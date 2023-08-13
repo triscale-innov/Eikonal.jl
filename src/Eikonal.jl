@@ -11,30 +11,117 @@ export ray
 export vertex2cell
 
 
-struct FastSweeping{T}
-    t      :: Matrix{T}
-    v      :: Matrix{T}
+"""
+    brgc(n)
+
+Get the Binary-Reflected Gray Code list for `n` bits (most significant bit last,
+i.e. using the reflect-and-suffix method).
+"""
+function brgc(n)
+    n == 1 && return [(0,),(1,)]
+
+    r = brgc(n-1)
+    res1 = map(r) do c
+        (c..., 0)
+    end
+    res2 = map(reverse(r)) do c
+        (c..., 1)
+    end
+    return append!(res1, res2)
+end
+
+struct Orthant{D}
+    δ :: NTuple{D, Int}
+    s :: NTuple{D, Int}
+    rev :: NTuple{D, Bool}
+
+    function Orthant(code::NTuple{D, Int}) where {D}
+        δ = map(code) do cᵢ
+            cᵢ == 0 ? 1 : -1
+        end
+        s = map(δ) do δᵢ
+            δᵢ < 0 ? 0 : 1
+        end
+        rev = map(δ) do δᵢ
+            δᵢ < 0 ? true : false
+        end
+        new{D}(δ, s, rev)
+    end
+end
+
+struct FastSweeping{T, D}
+    t      :: Array{T, D}
+    v      :: Array{T, D}
     change :: Vector{T}
     iter   :: Base.RefValue{Tuple{Int, Int}}  # (k, l)
+
+    function FastSweeping(σ::Array{T, D}) where {T,D}
+        siz = size(σ)
+        t = fill(typemax(T), (siz .+ 1)...)
+        change = ones(T, 2^D)
+        iter = Ref((1, 0))
+        new{T,D}(t, σ, change, iter)
+    end
+end
+
+function FastSweeping(T::DataType, siz::NTuple{D, Int}) where {D}
+    σ = fill(typemax(T), siz...)
+    FastSweeping(σ)
 end
 
 function Base.show(io::IO, fs::FastSweeping)
-    (m,n) = size(fs.v)
-    println(io, "FastSweeping solver on a $m×$n grid")
+    grid_size = join(string.(size(fs.v)), "×")
+    print(io, "FastSweeping solver on a $grid_size grid")
 end
 
-
-function FastSweeping(m::Int, n::Int, T=Float64)
-    t = fill(typemax(T), m+1, n+1)
-    v = fill(typemax(T), m,   n)
-    change = ones(T, 4)
-    iter = Ref((1, 0))
-    FastSweeping(t, v, change, iter)
+function init!(fs::FastSweeping, source)
+    fs.t[source...] = 0
+    fs.change .= Inf
+    fs
 end
 
-function init!(fs :: FastSweeping, source)
-    (i, j) = source
-    fs.t[i, j] = 0
+"""
+    subtuples(t::NTuple{N, T}) where {N, T}
+
+Generate the list of all sub-tuples obtained by removing one element from `t`.
+"""
+@generated function subtuples(t::NTuple{N, T}) where {N, T}
+    expr = Expr(:tuple)
+    expr.args = map(1:N) do i
+        Expr(:tuple, (:(t[$j]) for j in 1:N if i != j)...)
+    end
+    expr
+end
+
+@inline function update(tᵢ::NTuple{N, T}, v) where {N, T}
+    square(x) = x*x
+
+    # Hyp: ∇t is in an N-dimensional orthant
+    #      tᵢ contains the values of t in the N neighboring vertices
+    #
+    # t satisfies:
+    #    a⋅t² + b⋅t + c = 0
+    a = N
+    b = -2*sum(tᵢ)
+    c = sum(square, tᵢ) - v^2
+    Δ = b^2 - 4*a*c
+
+    t = typemax(T)
+    if Δ >= 0
+        t = (-b + √(Δ)) / 2a
+        t <= maximum(tᵢ) && (t = typemax(T))
+    end
+
+    # Hyp: ∇t lies on the boundary of the orthant
+    # => perform N-1 dimensional updates
+    for tᵢ′ in subtuples(tᵢ)
+        t = min(t, update(tᵢ′, v))
+    end
+    return t
+end
+
+@inline function update(tᵢ::NTuple{1, T}, v) where {T}
+    return tᵢ[1] + v
 end
 
 # Fast Sweeping Method
@@ -43,79 +130,64 @@ function sweep!(fs :: FastSweeping{T};
                 epsilon = eps(T),
                 nsweeps = typemax(Int),
                 ) where {T}
-    (t, v, change, iter) = (fs.t, fs.v, fs.change, fs.iter)
-    (m, n) = size(v)
+    D = ndims(fs.v)
 
-    ordered_indices(N, δ) = δ>0 ? (2:1:N+1) : (N:-1:1)
-    quadrants = ((1,1), (-1,1), (-1,-1), (1, -1))
+    square(x) = x*x
+    function indices(axis, rev)
+        a = rev ? reverse(axis) : StepRange(axis)
+        a[2:end]
+    end
 
-    k = first(iter[]) # Global iter number
-    l = last(iter[])  # Quadrant index
-    sweep = 0         # Sweep number
+    quadrants = map(Orthant, brgc(D)) :: Vector{Orthant{D}}
+
+    k = first(fs.iter[]) # Global iter number
+    l = last(fs.iter[])  # Quadrant index
+    sweep = 0            # Sweep number
     @inbounds while true
         l += 1
         sweep += 1
-        if l == 5
+        if l > length(quadrants)
             l = 1
             k += 1
         end
-        iter[] = (k, l)
+        fs.iter[] = (k, l)
 
-        (δᵢ,δⱼ) = quadrants[l]
-        maxchange = change[l] = zero(T)
-        maximum(change) <= epsilon && return true
+        maxchange = fs.change[l] = zero(T)
+        maximum(fs.change) <= epsilon && return true
 
-        sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
-        sⱼ = δⱼ<0 ? 0 : 1   # and cell-based indices (in `v`)
+        # Steps (±1) in each direction
+        δ = quadrants[l].δ
 
-        for j in ordered_indices(n, δⱼ)
-            for i in ordered_indices(m, δᵢ)
-                vᵢⱼ = v[i-sᵢ, j-sⱼ]
-                tᵢ  = t[i-δᵢ, j]
-                tⱼ  = t[i, j-δⱼ]
+        # Offset between vertex-based indices (in `t`)
+        # and cell-based indices (in `v`)
+        s = quadrants[l].s
 
-                # Hyp: sign(∇x) == sign(δi) && sign(∇y) == sign(δj)
-                #
-                # a⋅tᵢⱼ² + b⋅tᵢⱼ + c = 0
-                a = 2
-                b = -2*(tᵢ + tⱼ)
-                c = tᵢ^2 + tⱼ^2 - vᵢⱼ^2
-                Δ = b^2 - 4*a*c
+        # Indicates whether each axis should be reversed
+        rev = quadrants[l].rev
 
-                t₁ = t₂ = typemax(T)
-                if Δ>0                         # TODO: really need to compute both roots?
-                    t₁ = (-b + √(Δ)) / 2a
-                    t₁ > max(tᵢ, tⱼ) || (t₁ = typemax(T))
+        for I in CartesianIndices(indices.(axes(fs.t), rev))
+            v = fs.v[I - CartesianIndex(s)]
 
-                    t₂ = (-b - √(Δ)) / 2a
-                    t₂ > max(tᵢ, tⱼ) || (t₂ = typemax(T))
-                end
-
-                # Hyp: ∇y == 0  or  ∇x == 0
-                t₃ = vᵢⱼ + tᵢ
-                t₄ = vᵢⱼ + tⱼ
-
-                # Update if necessary
-                tmin = min(t₁, t₂, t₃, t₄)
-                if tmin < t[i,j]
-                    maxchange = max(maxchange, (t[i,j]-tmin)/tmin)
-                    t[i,j] = tmin
-                end
+            tᵢ = ntuple(Val(D)) do k
+                dir = ntuple(l -> k==l ? δ[k] : 0, Val(D))
+                fs.t[I - CartesianIndex(dir)]
             end
+            t = update(tᵢ, v)
 
+            # Update if necessary
+            if t < fs.t[I]
+                maxchange = max(maxchange, (fs.t[I]-t)/t)
+                fs.t[I] = t
+            end
         end
         verbose && println("iter $k, sweep $l: change = $maxchange")
-        change[l] = maxchange
+        fs.change[l] = maxchange
 
         sweep >= nsweeps && return false
     end
 
     error("Max number of iterations reached!")
 end
-
-
-
-
 
 function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
     sᵢ = δᵢ<0 ? 0 : 1   # Offset between vertex-based indices (in `t`)
@@ -227,35 +299,70 @@ end
 
 
 # Trajectory reconstruction using a gradient descent algorithm
-function ray(t::AbstractMatrix{T}, pos; ρ=T(0.1)) where {T}
+ray(t::AbstractArray{T,D}, pos) where {T,D} = ray(t, pos, Integration(0.1))
+
+struct Integration
+    rho :: Float64
+end
+
+function ray(t::AbstractArray{T,D}, pos, method::Integration) where {T,D}
     # ρ is the step of the gradient descent (in terms of cell size)
     # should be O(1) but can be decreased in cases where the gradient can be very large
+    ρ = method.rho
 
     res = [pos]
 
-    (i,j) = pos               # We need to keep track of integer cell indices
-    (x,y) = eltype(t).(pos)   # as well as floating-point position
+    # We need to keep track of floating point coordinates
+    x = eltype(t).(pos)
 
     # Gradient descent
     while true
-        tn = get(t, CartesianIndex(i+1, j), 2*t[i,j])
-        ts = get(t, CartesianIndex(i-1, j), 2*t[i,j])
-        tw = get(t, CartesianIndex(i, j+1), 2*t[i,j])
-        te = get(t, CartesianIndex(i, j-1), 2*t[i,j])
-        ∇ᵢ = (tn-ts) / 2   # Centered differences
-        ∇ⱼ = (tw-te) / 2   # (inconsistent with the FSM: is it a problem?)
-        ∇  = (∇ᵢ, ∇ⱼ)
+        I = CartesianIndex(round.(Int, x)) # Integer coordinates
+        ∇ = ntuple(Val(D)) do k
+            δ = CartesianIndex(ntuple(l -> k==l ? 1 : 0, Val(D)))
+            t1 = min(t[I + δ], 2*t[I])
+            t2 = min(t[I - δ], 2*t[I])
+            (t1-t2) / 2
+        end
 
-        # t is not differentiable near the origin
-        # => stop a bit before arriving
-        t[i,j] <= ρ * norm(∇) && break
+        t_min = ntuple(Val(D)) do k
+            δ = CartesianIndex(ntuple(l -> k==l ? 1 : 0, Val(D)))
+            min(t[I + δ], t[I - δ])
+        end
 
-        # Fixed step length ρ
-        x -= ρ * ∇ᵢ / norm(∇); i = round(Int, x)
-        y -= ρ * ∇ⱼ / norm(∇); j = round(Int, y)
+        # Stop when we reached a local minimum
+        minimum(t_min) >= t[I] && break
+
+        # Update position with a fixed step length ρ
+        x = x .- ρ .* ∇ ./ norm(∇)
 
         # Only record point if it is new
-        (i,j) != last(res) && push!(res, (i,j))
+        pos = Tuple(I)
+        pos != last(res) && push!(res, pos)
+    end
+
+    res
+end
+
+struct NearestMin end
+function ray(t::AbstractArray{T,D}, pos, ::NearestMin) where {T, D}
+    I = CartesianIndex(pos)
+    res = [pos]
+
+    while true
+        # Find minimal time in a box surrounding the current position
+        box = I-oneunit(I):I+oneunit(I)
+        _, ibox = findmin(box) do I′
+            I′ ∈ CartesianIndices(t) ? t[I′] : Inf
+        end
+        I′ = box[ibox]
+
+        # Stop when we reached a local minimum
+        I == I′ && break
+
+        # Update current position
+        I = I′
+        push!(res, Tuple(I))
     end
 
     res
@@ -263,20 +370,21 @@ end
 
 
 function from_png(T, filename, colors)
-    coeffs = map(colors) do (color, invspeed)
+    σ = from_png(filename, colors)
+    T(σ)
+end
+
+function from_png(filename::AbstractString, colors)
+    img = load(filename)
+    dict = map(colors) do (color, invspeed)
         parse(Colorant, color) => invspeed
     end |> Dict
 
-    img = load(filename)
-    sol = FastSweeping(size(img)...)
-
-    col = collect(keys(coeffs))
-    map!(sol.v, img) do c
+    col = collect(keys(dict))
+    map(img) do c
         (_, i) = findmin(c′->colordiff(c,c′), col)
-        coeffs[col[i]]
+        dict[col[i]]
     end
-
-    sol
 end
 
 FastSweeping(filename::String, colors) = from_png(FastSweeping, filename, colors)
