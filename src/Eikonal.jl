@@ -54,24 +54,27 @@ struct FastSweeping{T, D}
     v      :: Array{T, D}
     change :: Vector{T}
     iter   :: Base.RefValue{Tuple{Int, Int}}  # (k, l)
+
+    function FastSweeping(σ::Array{T, D}) where {T,D}
+        siz = size(σ)
+        t = fill(typemax(T), (siz .+ 1)...)
+        change = ones(T, 2^D)
+        iter = Ref((1, 0))
+        new{T,D}(t, σ, change, iter)
+    end
+end
+
+function FastSweeping(T::DataType, siz::NTuple{D, Int}) where {D}
+    σ = fill(typemax(T), siz...)
+    FastSweeping(σ)
 end
 
 function Base.show(io::IO, fs::FastSweeping)
-    (m,n) = size(fs.v)
     grid_size = join(string.(size(fs.v)), "×")
     print(io, "FastSweeping solver on a $grid_size grid")
 end
 
-
-function FastSweeping(T::DataType, siz::NTuple{D, Int}) where {D}
-    t = fill(typemax(T), (siz .+ 1)...)
-    v = fill(typemax(T), siz...)
-    change = ones(T, 2^D)
-    iter = Ref((1, 0))
-    FastSweeping(t, v, change, iter)
-end
-
-function init!(fs :: FastSweeping, source)
+function init!(fs::FastSweeping, source)
     fs.t[source...] = 0
     fs.change .= Inf
     fs
@@ -349,7 +352,7 @@ function ray(t::AbstractArray{T,D}, pos, ::NearestMin) where {T, D}
     while true
         # Find minimal time in a box surrounding the current position
         box = I-oneunit(I):I+oneunit(I)
-        t_min, ibox = findmin(box) do I′
+        _, ibox = findmin(box) do I′
             I′ ∈ CartesianIndices(t) ? t[I′] : Inf
         end
         I′ = box[ibox]
@@ -367,20 +370,21 @@ end
 
 
 function from_png(T, filename, colors)
-    coeffs = map(colors) do (color, invspeed)
+    σ = from_png(filename, colors)
+    T(σ)
+end
+
+function from_png(filename::AbstractString, colors)
+    img = load(filename)
+    dict = map(colors) do (color, invspeed)
         parse(Colorant, color) => invspeed
     end |> Dict
 
-    img = load(filename)
-    sol = T(Float64, size(img))
-
-    col = collect(keys(coeffs))
-    map!(sol.v, img) do c
+    col = collect(keys(dict))
+    map(img) do c
         (_, i) = findmin(c′->colordiff(c,c′), col)
-        coeffs[col[i]]
+        dict[col[i]]
     end
-
-    sol
 end
 
 FastSweeping(filename::String, colors) = from_png(FastSweeping, filename, colors)
