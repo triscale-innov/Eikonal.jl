@@ -65,7 +65,7 @@ dist(x, y) = maximum(x.-y)
     end
 
     @testset "Utilities" begin
-        img = joinpath(@__DIR__, "..", "docs", "readme", "maze.png")
+        img = joinpath(@__DIR__, "..", "docs", "maze", "maze.png")
         fsm = FastSweeping(img, ["black"=>Inf, "white"=>1.0])
 
         entrance = (10, 100)
