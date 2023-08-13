@@ -4,8 +4,8 @@
 # page](https://math.berkeley.edu/~sethian/2006/Applications/Robotics/robotics.html).
 #
 #md # It is also available in notebook form:
-#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](README.ipynb)
-#md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/piano/README.ipynb)
+#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](piano.ipynb)
+#md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/piano/piano.ipynb)
 
 # The objective of the problem proposed here is to determine a shortest path to
 # move an object in a constrained space without hitting the walls. When the

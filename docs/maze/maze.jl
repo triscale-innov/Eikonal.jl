@@ -1,8 +1,8 @@
 # # Path planning in a maze
 
 #md # This example is also available in notebook form:
-#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/readme/README.ipynb)
-#md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/readme/README.ipynb)
+#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/maze/maze.ipynb)
+#md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/maze/maze.ipynb)
 
 # In this example, we solve an Eikonal equation in order to find a shortest path
 # in a maze described by the following picture:
