@@ -1,2 +1,2 @@
 update:
-	julia -e 'include("../update.jl") && update("maze.jl")'
+	../update.jl maze.jl

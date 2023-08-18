@@ -1,7 +1,7 @@
 # Path planning in a maze
 
 This example is also available in notebook form:
-[![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/maze/maze.ipynb)
+[![ipynb](https://img.shields.io/badge/download-ipynb-blue)](maze.ipynb)
 [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/maze/maze.ipynb)
 
 In this example, we solve an Eikonal equation in order to find a shortest path
@@ -29,9 +29,9 @@ solver = FastSweeping("maze.png", ["white"=>1.0, "black"=>Inf])
 
 NB: it would also have been possible to create an uninitialized solver providing only its grid size. The slowness field could then be initialized by accessing its internal field `v`:
 ```julia
-(m,n) = 1000, 2000
-fsm = FastSweeping(m, n)  # a FastSweeping solver operating on a m×n grid
-fsm.v .= rand()           # initialize its slowness field
+(m, n) = (1000, 2000) # grid size
+σ = rand(m, n)        # random slowness field
+fsm = FastSweeping(σ) # solver with the given slowness field
 ```
 
 We then define the grid position of the maze entrance. It is entered as a boundary condition for the solver.
@@ -74,7 +74,7 @@ Let's finally plot everything:
 ````julia
 using Plots
 
-plot(title="Path planning with the FSM in a maze", dpi=300)
+plot(title="Path planning with the FSM in a maze", size=(800, 600))
 contour!(solver.t, levels=30, fill=true, c=:coolwarm)
 plot!(last.(r), first.(r),
       linewidth=2, linecolor=:green3, label=nothing)

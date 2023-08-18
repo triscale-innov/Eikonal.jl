@@ -23,7 +23,7 @@
 
 import Pkg                             #hide
 Pkg.activate(joinpath(@__DIR__, "..")) #hide
-Pkg.instantiate()                      #hide
+Pkg.resolve(io=devnull)                #hide
 
 using Eikonal
 using Plots
@@ -33,7 +33,7 @@ using Plots
 walls = Eikonal.from_png("apartment.png", ["white"=>false, "black"=>true])
 heatmap(walls, c=:coolwarm,
         title = "Position of the walls",
-        aspect_ratio=1, size=(1000, 1000),
+        aspect_ratio=1, size=(800, 800),
         showaxis=false, legend=false, grid=false)
 savefig("walls.png") #src
 #md # ![](walls.png)
@@ -82,7 +82,7 @@ size(σ)
 
 heatmap(min.(σ[:,:,51], 2.), c=:coolwarm,
         title = "Valid positions when θ=0",
-        aspect_ratio=1, size=(1000, 1000),
+        aspect_ratio=1, size=(800, 800),
         showaxis=false, legend=false, grid=false)
 savefig("valid.png") #src
 #md # ![](valid.png)
@@ -115,7 +115,7 @@ end
 
 function background()
     plot(title = "Moving a piano in a San Francisco apartment",
-         aspect_ratio=1, size=(1000, 1000),
+         aspect_ratio=1, size=(800, 800),
          showaxis=false, legend=false, grid=false)
     heatmap!(walls, c=:coolwarm)
     plot!(piano_corners(orig)..., label="", linecolor=LC, linestyle=:dot, linewidth=LW+1)
