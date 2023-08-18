@@ -26,10 +26,47 @@ This package provides implementations for two methods
 
 ## Examples / Tutorials
 
+### Distance to multiple source points
+
+This first example uses the Fast Marching method to compute a field of
+distances to a set of source points. It is equivalent to the example given by
+the [FastMarching.jl](https://github.com/hellemo/FastMarching.jl) package.
+
+````julia
+using Eikonal, Plots
+
+tsize = 1000
+
+solver = FastMarching(tsize, tsize)
+solver.v .= 1;
+
+npoints = 10
+for _ in 1:npoints
+    (i, j) = rand(1:tsize, 2)
+    init!(solver, (i, j))
+end
+
+march!(solver, verbose=true)
+
+contour(solver.t, levels=30,
+        aspect_ratio=1, c=:coolwarm, size=(800, 600),
+        title = "Distance to a set of 10 source points")
+````
+
+![](docs/readme/distance.png)
+
+### Water waves in a ripple tank
+
+This example uses the Eikonal equation as a high-frequency approximation to
+the wave propagation equation. It computes the time of first arrival of a
+(water) wave front in a ripple tank. (The image links to the details)
+
+[![](docs/ripple-tank/times.png)](docs/ripple-tank/ripple-tank.md)
+
 ### Path planning in a maze
 
 This example uses the Fast Sweeping method to solve a 2D Eikonal equation in
-order to find a shortest path in a maze.
+order to find a shortest path in a maze. (The image links to the details)
 
 [![](docs/maze/path.png)](docs/maze/maze.md)
 
@@ -37,5 +74,11 @@ order to find a shortest path in a maze.
 
 This example uses the Fast Sweeping method to solve a 3D Eikonal equation in
 order to find an optimal path when moving an object in a constrained space.
+(The image links to the details)
 
 [![](docs/piano/piano_traj.gif)](docs/piano/piano.md)
+
+---
+
+*This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+

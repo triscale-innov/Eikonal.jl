@@ -1,7 +1,7 @@
 # # Path planning in a maze
 
 #md # This example is also available in notebook form:
-#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](docs/maze/maze.ipynb)
+#md # [![ipynb](https://img.shields.io/badge/download-ipynb-blue)](maze.ipynb)
 #md # [![nbviewer](https://img.shields.io/badge/show-nbviewer-blue.svg)](https://nbviewer.jupyter.org/github/triscale-innov/Eikonal.jl/blob/main/docs/maze/maze.ipynb)
 
 # In this example, we solve an Eikonal equation in order to find a shortest path
@@ -13,9 +13,9 @@
 
 # We first load the package:
 
-import Pkg                                         #hide
-Pkg.activate(joinpath(@__DIR__, ".."), io=devnull) #hide
-Pkg.resolve(io=devnull)                            #hide
+import Pkg                             #hide
+Pkg.activate(joinpath(@__DIR__, "..")) #hide
+Pkg.resolve(io=devnull)                #hide
 using Eikonal
 
 # We then create a solver object, in this case, we'll use the Fast Sweeping
@@ -30,9 +30,9 @@ solver = FastSweeping("maze.png", ["white"=>1.0, "black"=>Inf])
 
 # NB: it would also have been possible to create an uninitialized solver providing only its grid size. The slowness field could then be initialized by accessing its internal field `v`:
 # ```julia
-# (m,n) = 1000, 2000
-# fsm = FastSweeping(m, n)  # a FastSweeping solver operating on a m×n grid
-# fsm.v .= rand()           # initialize its slowness field
+# (m, n) = (1000, 2000) # grid size
+# σ = rand(m, n)        # random slowness field
+# fsm = FastSweeping(σ) # solver with the given slowness field
 # ```
 
 #-
@@ -68,7 +68,7 @@ r = ray(solver.t, goal)
 
 using Plots
 
-plot(title="Path planning with the FSM in a maze", dpi=300)
+plot(title="Path planning with the FSM in a maze", size=(800, 600))
 contour!(solver.t, levels=30, fill=true, c=:coolwarm)
 plot!(last.(r), first.(r),
       linewidth=2, linecolor=:green3, label=nothing)

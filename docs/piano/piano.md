@@ -31,7 +31,7 @@ The position of the walls is loaded from a PNG image.
 walls = Eikonal.from_png("apartment.png", ["white"=>false, "black"=>true])
 heatmap(walls, c=:coolwarm,
         title = "Position of the walls",
-        aspect_ratio=1, size=(1000, 1000),
+        aspect_ratio=1, size=(800, 800),
         showaxis=false, legend=false, grid=false)
 ````
 
@@ -86,7 +86,7 @@ piano when $θ=0$:
 ````julia
 heatmap(min.(σ[:,:,51], 2.), c=:coolwarm,
         title = "Valid positions when θ=0",
-        aspect_ratio=1, size=(1000, 1000),
+        aspect_ratio=1, size=(800, 800),
         showaxis=false, legend=false, grid=false)
 ````
 
@@ -123,7 +123,7 @@ end
 
 function background()
     plot(title = "Moving a piano in a San Francisco apartment",
-         aspect_ratio=1, size=(1000, 1000),
+         aspect_ratio=1, size=(800, 800),
          showaxis=false, legend=false, grid=false)
     heatmap!(walls, c=:coolwarm)
     plot!(piano_corners(orig)..., label="", linecolor=LC, linestyle=:dot, linewidth=LW+1)
