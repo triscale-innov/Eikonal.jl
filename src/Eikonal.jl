@@ -404,4 +404,6 @@ function vertex2cell(t)
     t′
 end
 
+include("precompile.jl")
+
 end
