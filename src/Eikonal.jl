@@ -17,10 +17,10 @@ export vertex2cell
 Get the Binary-Reflected Gray Code list for `n` bits (most significant bit last,
 i.e. using the reflect-and-suffix method).
 """
-function brgc(n)
-    n == 1 && return [(0,),(1,)]
-
-    r = brgc(n-1)
+brgc(n::Integer) = brgc(Val(n))
+brgc(::Val{1}) = [(0,), (1,)]
+function brgc(::Val{N}) where {N}
+    r = brgc(Val(N-1))
     res1 = map(r) do c
         (c..., 0)
     end
@@ -138,7 +138,9 @@ function sweep!(fs :: FastSweeping{T};
         a[2:end]
     end
 
-    quadrants = map(Orthant, brgc(D)) :: Vector{Orthant{D}}
+    # Build a list of all orthants, in the order determined by a Gray code
+    # (since it forms a Hamiltonian cycle on the N-D hypercube)
+    orthants = Orthant.(brgc(D))
 
     k = first(fs.iter[]) # Global iter number
     l = last(fs.iter[])  # Quadrant index
@@ -146,7 +148,7 @@ function sweep!(fs :: FastSweeping{T};
     @inbounds while true
         l += 1
         sweep += 1
-        if l > length(quadrants)
+        if l > length(orthants)
             l = 1
             k += 1
         end
@@ -155,15 +157,11 @@ function sweep!(fs :: FastSweeping{T};
         maxchange = fs.change[l] = zero(T)
         maximum(fs.change) <= epsilon && return true
 
-        # Steps (±1) in each direction
-        δ = quadrants[l].δ
-
-        # Offset between vertex-based indices (in `t`)
-        # and cell-based indices (in `v`)
-        s = quadrants[l].s
-
-        # Indicates whether each axis should be reversed
-        rev = quadrants[l].rev
+        orthant = orthants[l]
+        δ = orthant.δ     # direction (±1) alongside each axis
+        s = orthant.s     # shift/offset between vertex-based indices (in `t`)
+                          #    and cell-based indices (in `v`)
+        rev = orthant.rev # rev: indicates whether each axis should be reversed
 
         for I in CartesianIndices(indices.(axes(fs.t), rev))
             v = fs.v[I - CartesianIndex(s)]
@@ -185,8 +183,6 @@ function sweep!(fs :: FastSweeping{T};
 
         sweep >= nsweeps && return false
     end
-
-    error("Max number of iterations reached!")
 end
 
 function update(t::AbstractMatrix{T}, v, (i,j), (δᵢ, δⱼ)) where {T}
