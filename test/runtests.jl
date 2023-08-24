@@ -2,6 +2,7 @@ using Eikonal
 using Test
 
 using Eikonal: NearestMin
+using Images
 
 dist(x, y) = maximum(x.-y)
 
@@ -65,8 +66,9 @@ dist(x, y) = maximum(x.-y)
     end
 
     @testset "Utilities" begin
-        img = joinpath(@__DIR__, "..", "docs", "maze", "maze.png")
-        fsm = FastSweeping(img, ["black"=>Inf, "white"=>1.0])
+        path = joinpath(@__DIR__, "..", "docs", "maze", "maze.png")
+        σ = Eikonal.img2array(load(path), ["black"=>Inf, "white"=>1.0])
+        fsm = FastSweeping(σ)
 
         entrance = (10, 100)
         init!(fsm, entrance)

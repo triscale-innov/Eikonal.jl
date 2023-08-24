@@ -27,10 +27,11 @@ Pkg.resolve(io=devnull)                #hide
 
 using Eikonal
 using Plots
+using Images
 
 # The position of the walls is loaded from a PNG image.
 
-walls = Eikonal.from_png("apartment.png", ["white"=>false, "black"=>true])
+walls = Eikonal.img2array(load("apartment.png"), ["white"=>false, "black"=>true])
 heatmap(walls, c=:coolwarm,
         title = "Position of the walls",
         aspect_ratio=1, size=(800, 800),

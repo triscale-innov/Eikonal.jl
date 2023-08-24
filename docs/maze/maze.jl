@@ -20,13 +20,14 @@ using Eikonal
 
 # We then create a solver object, in this case, we'll use the Fast Sweeping
 # Method and build a solver of type `FastSweeping`. A convenience function is
-# provided to create the solver from an image, in which case the grid size is
-# taken from the image size, and the slowness $\sigma$ is initialized based on
-# the pixel colors. Here, we'll consider walls (black pixels) to be
-# unreacheable: they have infinite slowness. White pixels have an (arbitrary)
-# finite slowness.
+# provided to create the slowness array from an image, in which case the grid
+# size is taken from the image size, and the slowness values are based on the
+# pixel colors. Here, we'll consider walls (black pixels) to be unreacheable:
+# they have infinite slowness. White pixels have an (arbitrary) finite slowness.
 
-solver = FastSweeping("maze.png", ["white"=>1.0, "black"=>Inf])
+using Images
+σ = Eikonal.img2array(load("maze.png"), ["white"=>1.0, "black"=>Inf])
+solver = FastSweeping(σ)
 
 # NB: it would also have been possible to create an uninitialized solver providing only its grid size. The slowness field could then be initialized by accessing its internal field `v`:
 # ```julia

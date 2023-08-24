@@ -1,14 +1,12 @@
 module Eikonal
 
 using DataStructures
-using Images
 using LinearAlgebra
 using Printf
 
 export FastSweeping, sweep!
-export FastMarching, init!, march!
-export ray
-export vertex2cell
+export FastMarching, march!
+export init!, ray, vertex2cell
 
 
 """
@@ -364,29 +362,6 @@ function ray(t::AbstractArray{T,D}, pos, ::NearestMin) where {T, D}
     res
 end
 
-
-function from_png(T, filename, colors)
-    σ = from_png(filename, colors)
-    T(σ)
-end
-
-function from_png(filename::AbstractString, colors)
-    img = load(filename)
-    dict = map(colors) do (color, invspeed)
-        parse(Colorant, color) => invspeed
-    end |> Dict
-
-    col = collect(keys(dict))
-    map(img) do c
-        (_, i) = findmin(c′->colordiff(c,c′), col)
-        dict[col[i]]
-    end
-end
-
-FastSweeping(filename::String, colors) = from_png(FastSweeping, filename, colors)
-FastMarching(filename::String, colors) = from_png(FastMarching, filename, colors)
-
-
 # Convert from vertex-based arrival times to cell-based times
 function vertex2cell(t)
     (m,n) = size(t) .- 1
@@ -398,6 +373,12 @@ function vertex2cell(t)
         end
     end
     t′
+end
+
+function img2array end
+
+if !isdefined(Base, :get_extension)
+    include("../ext/EikonalColorsExt.jl")
 end
 
 include("precompile.jl")
