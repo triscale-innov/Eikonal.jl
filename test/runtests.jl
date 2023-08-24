@@ -1,12 +1,20 @@
 using Eikonal
-using Test
+using Test, Aqua
 
 using Eikonal: NearestMin
 using Images
 
 dist(x, y) = maximum(x.-y)
 
-@testset "Eikonal.jl" begin
+@testset "Eikonal.jl" verbose=true begin
+    @testset "Aqua" begin
+        Aqua.test_all(
+            Eikonal;
+            # Only test Project.toml formatting on versions that support extensions
+            project_toml_formatting = isdefined(Base, :get_extension),
+        )
+    end
+
     @testset "FastSweeping" begin
         siz = (1100, 1200)
         fsm = FastSweeping(Float64, siz)

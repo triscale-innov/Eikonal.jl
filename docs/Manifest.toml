@@ -278,7 +278,7 @@ version = "1.6.0"
 deps = ["DataStructures", "LinearAlgebra", "PrecompileTools", "Printf"]
 path = ".."
 uuid = "a6aab1ba-8f88-4217-b671-4d0788596809"
-version = "0.1.2"
+version = "0.2.0"
 weakdeps = ["Colors"]
 
     [deps.Eikonal.extensions]
