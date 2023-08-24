@@ -2,6 +2,7 @@
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://triscale-innov.github.io/Eikonal.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://triscale-innov.github.io/Eikonal.jl/dev/)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![Build Status](https://github.com/triscale-innov/Eikonal.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/triscale-innov/Eikonal.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/triscale-innov/Eikonal.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/triscale-innov/Eikonal.jl)
 

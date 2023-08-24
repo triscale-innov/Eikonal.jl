@@ -83,7 +83,7 @@ end
 
 Generate the list of all sub-tuples obtained by removing one element from `t`.
 """
-@generated function subtuples(t::NTuple{N, T}) where {N, T}
+@generated function subtuples(t::NTuple{N}) where {N}
     expr = Expr(:tuple)
     expr.args = map(1:N) do i
         Expr(:tuple, (:(t[$j]) for j in 1:N if i != j)...)
@@ -91,7 +91,8 @@ Generate the list of all sub-tuples obtained by removing one element from `t`.
     expr
 end
 
-@inline function update(tᵢ::NTuple{N, T}, v) where {N, T}
+@inline function update(tᵢ::NTuple, v)
+    N, T = length(tᵢ), eltype(tᵢ)
     square(x) = x*x
 
     # Hyp: ∇t is in an N-dimensional orthant
