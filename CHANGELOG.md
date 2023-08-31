@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testing with [`Aqua.jl`](https://github.com/JuliaTesting/Aqua.jl)
   ([#23](https://github.com/triscale-innov/Eikonal.jl/pull/23))
 
+### Fixed
+
+- Made `vertex2cell` dimension-agnostic
+  ([#24](https://github.com/triscale-innov/Eikonal.jl/pull/24))
+
 
 ## [0.1.1] - 2023-08-21
 
