@@ -339,14 +339,19 @@ function ray(t::AbstractArray{T,D}, pos, method::Integration) where {T,D}
     res
 end
 
-struct NearestMin end
-function ray(t::AbstractArray{T,D}, pos, ::NearestMin) where {T, D}
+struct NearestMin
+    box_size :: Int
+    NearestMin(box_size = 1) = new(box_size)
+end
+
+function ray(t::AbstractArray{T,D}, pos, method::NearestMin) where {T, D}
     I = CartesianIndex(pos)
     res = [pos]
+    bs = method.box_size
 
     while true
         # Find minimal time in a box surrounding the current position
-        box = I-oneunit(I):I+oneunit(I)
+        box = I-bs*oneunit(I):I+bs*oneunit(I)
         _, ibox = findmin(box) do I′
             I′ ∈ CartesianIndices(t) ? t[I′] : Inf
         end

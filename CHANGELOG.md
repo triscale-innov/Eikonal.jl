@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Testing with [`Aqua.jl`](https://github.com/JuliaTesting/Aqua.jl)
   ([#23](https://github.com/triscale-innov/Eikonal.jl/pull/23))
+  
+- Possibility to tune the box size for ray computations via the `NearestMin`
+  method
 
 ### Fixed
 
